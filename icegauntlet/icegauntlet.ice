@@ -12,7 +12,7 @@ module IceGauntlet {
   };
 
   interface RoomManager {
-    void publish(string token, string roomData) throws Unauthorized, RoomAlreadyExists;
+    void publish(string token, string roomData) throws Unauthorized, RoomAlreadyExists, WrongRoomFormat;
     void remove(string token, string roomName) throws Unauthorized, RoomNotExists;
   };
 

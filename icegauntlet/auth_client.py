@@ -9,6 +9,7 @@ import logging
 import argparse
 import hashlib
 import getpass
+import json
 
 import Ice
 Ice.loadSlice('icegauntlet.ice')
@@ -42,6 +43,7 @@ class clienteAutenticacion(Ice.Application):
     
     def conseguirToken(self,user, auth):#python3 auth_client.py -t proxy usuario
         token=""
+        tokenDict={}
         password=getpass.getpass(prompt="Enter password:")
         passwordHash=self.calcularHash(password)
         try:
@@ -49,8 +51,9 @@ class clienteAutenticacion(Ice.Application):
         except IceGauntlet.Unauthorized:
             print("Usuario y/o contraseña no valida")
             os._exit(-1)
-        with open("token.txt", 'w') as tokenTxt:#se escribe el nuevo token en el archivo token.txt para futuras operaciones
-            tokenTxt.write(token)
+        with open("token.json", 'w') as tokenJson:#se escribe el nuevo token en el archivo token.txt para futuras operaciones
+            tokenDict["token"]=token
+            json.dump(tokenDict, tokenJson)
     
     def cambiarPassword(self, user,auth):
         currentPassword=getpass.getpass(prompt="Enter current password:")

@@ -14,7 +14,7 @@ except ImportError:
     sys.exit(1)
 
 # Define command to request new token
-_COMMAND_ = './user_config -t %(user)s "%(auth_proxy)s"'
+_COMMAND_ = 'python3 auth_client.py -t %(user)s "%(auth_proxy)s"'
 
 # Message used by authentication client when asking for a password
 _PASSWORD_MESSAGE_ = 'Enter password:'
