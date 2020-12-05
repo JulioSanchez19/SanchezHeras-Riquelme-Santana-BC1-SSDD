@@ -1,0 +1,15 @@
+#!/usr/bin/env python3
+
+'''
+Script to run game server
+'''
+
+import os
+import json
+
+gameProxyFile="icegauntlet/gameProxy.json"
+
+if os.path.exists(gameProxyFile):
+    with open(gameProxyFile,'r') as proxyFile:
+        gameProxy=json.load(proxyFile)
+        print(gameProxy["proxy"])
