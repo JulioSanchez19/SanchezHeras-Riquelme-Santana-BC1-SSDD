@@ -26,6 +26,7 @@ class JuegoI(IceGauntlet.Dungeon):
 
     def getRoom(self, current=None):
         '''Devuelve una room de la BD'''
+        self._rooms_=glob.glob(ROOMS_DIRECTORY)
         room=""
         if self._rooms_:
             room=self._rooms_[random.randint(0, len(self._rooms_)-1)]
@@ -38,7 +39,7 @@ class GestionMapasI(IceGauntlet.RoomManager):
     def __init__(self, proxy_auth_server):
         self.proxy_auth_server=proxy_auth_server
         self._rooms_=glob.glob(ROOMS_DIRECTORY)
-    
+
     def __comprobar_nombre_distinto__(self,token,room_data, rooms):
         '''Comprueba que el nombre de la room no este ya en la BD'''
         distinto=True
@@ -71,16 +72,15 @@ class GestionMapasI(IceGauntlet.RoomManager):
                         room_data_=json.load(rooms)
                     except:
                         raise IceGauntlet.WrongRoomFormat()
-            print(room_data_)
-            if room_data_["room"] is None or room_data_["data"] is None:
-                raise IceGauntlet.WrongRoomFormat()
-            else:
-                if self.__comprobar_nombre_distinto__(token,room_data_, self._rooms_)==True:
-                    room_data_["token"]=token
-                    with open("rooms/"+self.__elegir_nombre__()+".json", 'w') as contents:
-                        json.dump(room_data_, contents, indent=4, sort_keys=True)
+                if room_data_["room"] is None or room_data_["data"] is None:
+                    raise IceGauntlet.WrongRoomFormat()
                 else:
-                    raise IceGauntlet.RoomAlreadyExists()
+                    if self.__comprobar_nombre_distinto__(token,room_data_, self._rooms_)==True:
+                        room_data_["token"]=token
+                        with open("rooms/"+self.__elegir_nombre__()+".json", 'w') as contents:
+                            json.dump(room_data_, contents, indent=4, sort_keys=True)
+                    else:
+                        raise IceGauntlet.RoomAlreadyExists()
         else:
             raise IceGauntlet.Unauthorized()
 
@@ -93,11 +93,10 @@ class GestionMapasI(IceGauntlet.RoomManager):
                 if os.path.exists(room):
                     with open(room,'r') as file_room:
                         room_json=json.load(file_room)
-                        print(room_json["room"])
                         if room_json["room"]==room_name:
                             if room_json["token"]==token:
-                                print(room+" borrado")
                                 os.remove(room)
+                                print(room+" borrado")
                                 break
                             else:
                                 raise IceGauntlet.Unauthorized()

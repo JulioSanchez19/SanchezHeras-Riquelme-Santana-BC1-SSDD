@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+# pylint: disable=W0201
 
 '''
 Cliente para la gestion de los mapas
@@ -11,7 +12,6 @@ Ice.loadSlice('icegauntlet.ice')
 # pylint: disable=E0401
 # pylint: disable=C0413
 import IceGauntlet
-
 
 class RoomsToolClient(Ice.Application):
     '''Clase para la gestion de los mapas'''
@@ -25,33 +25,45 @@ class RoomsToolClient(Ice.Application):
         if not proxy_room_manager:
             raise RuntimeError('Invalid proxy')
 
+        return_code=0
+
         if argv[1]=="-p":
-            self.upload_map(proxy_room_manager,argv)
+            return_code=self.upload_map(proxy_room_manager,argv)
         elif argv[1]=="-r":
-            self.delete_map(proxy_room_manager,argv)
+            return_code=self.delete_map(proxy_room_manager,argv)
         else:
             print("Opciones: -p -r")
+
+        return return_code
 
     def upload_map(self,proxy_room_manager,argv):
         '''Sube un mapa'''
         token=argv[3]
         try:
             proxy_room_manager.publish(token, argv[4])
+            return 0
         except IceGauntlet.RoomAlreadyExists:
             print("La room que desea guardar ya existe")
+            return -1
         except IceGauntlet.Unauthorized:
             print("Acceso no autorizado")
+            return -1
         except IceGauntlet.WrongRoomFormat:
             print("Formato de la room incorrecto")
+            return -1
 
     def delete_map(self,proxy_room_manager,argv):
         '''Borra un mapa'''
         token=argv[3]
         try:
             proxy_room_manager.remove(token, argv[4])
+            print("Room eliminada con exito")
+            return 0
         except IceGauntlet.Unauthorized:
             print("Acceso no autorizado")
+            return -1
         except IceGauntlet.RoomNotExists:
             print("La room no existe")
+            return -1
 
 sys.exit(RoomsToolClient().main(sys.argv))

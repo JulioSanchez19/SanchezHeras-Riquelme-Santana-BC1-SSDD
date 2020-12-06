@@ -1,7 +1,5 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-# pylint: disable=W1203
-# pylint: disable=W0613
 
 '''Cliente del juego'''
 import sys

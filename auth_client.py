@@ -7,7 +7,6 @@ Cliente de autenticacion
 import sys
 import hashlib
 import getpass
-import json
 
 import Ice
 Ice.loadSlice('icegauntlet.ice')
@@ -29,15 +28,16 @@ class ClienteAutenticacion(Ice.Application):
             raise RuntimeError('Invalid proxy')
 
         user=argv[2]
+        return_code=0
 
         if argv[1]=="-g":
-            self.conseguir_token(user, auth)
+            return_code=self.conseguir_token(user, auth)
         elif argv[1]=="-c":
-            self.cambiar_password(user, auth)
+            return_code=self.cambiar_password(user, auth)
         else:
             print("Opciones -g -c")
 
-        return 0
+        return return_code
 
     def calcular_hash(self,password):
         '''Calcula el hash del password'''
@@ -50,9 +50,11 @@ class ClienteAutenticacion(Ice.Application):
         password_hash=self.calcular_hash(password)
         try:
             token=auth.getNewToken(user, password_hash)
+            print("token: "+token)
+            return 0
         except IceGauntlet.Unauthorized:
             print("Usuario y/o contraseña no valida")
-        print("token: "+token)
+            return -1
 
     def cambiar_password(self, user,auth):
         '''Cambia contrasenia de usuario'''
@@ -61,14 +63,18 @@ class ClienteAutenticacion(Ice.Application):
             new_password_hash=self.calcular_hash(getpass.getpass(prompt="Enter new password:"))
             try:
                 auth.changePassword(user,None, new_password_hash)
+                return 0
             except IceGauntlet.Unauthorized:
                 print("Usuario y/o contraseña no valida")
+                return -1
         else:
             current_password_hash=self.calcular_hash(current_password)
             new_password_hash=self.calcular_hash(getpass.getpass(prompt="Enter new password:"))
             try:
                 auth.changePassword(user,current_password_hash, new_password_hash)
+                return 0
             except IceGauntlet.Unauthorized:
                 print("Usuario y/o contraseña no valida")
+                return -1
 
 sys.exit(ClienteAutenticacion().main(sys.argv))
