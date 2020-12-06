@@ -6,19 +6,14 @@ Script to run game client
 
 import os
 import sys
-
-try:
-    import pexpect
-except ImportError:
-    print('Required library "pexpect" not exists. Install with pip and try again')
-    sys.exit(1)
+import subprocess
 
 # Define command
 _COMMAND_ = 'python3 dungeon_client.py "%(game_proxy)s"'
 
 try:
     game_proxy = sys.argv[1]
-except ValueError:
+except IndexError:
     print('Command arguments: {} <game_proxy>'.format(
         os.path.basename(sys.argv[0]))
     )
@@ -28,12 +23,9 @@ except ValueError:
 final_command = _COMMAND_ % {
     'game_proxy': game_proxy
 }
-
-# Run command
-proc = pexpect.spawn(final_command, echo=False)
-proc.logfile=sys.stdout.buffer
+#Run command
 try:
-    proc.expect([pexpect.EOF,pexpect.TIMEOUT],timeout=None)
+    subprocess.run(final_command,shell=True, stdout=sys.stdout)
 except KeyboardInterrupt:
     print("Programa detenido por teclado")
 sys.exit(0)

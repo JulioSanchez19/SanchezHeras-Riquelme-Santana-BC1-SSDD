@@ -6,12 +6,7 @@ Script to run map server
 
 import os
 import sys
-
-try:
-    import pexpect
-except ImportError:
-    print('Required library "pexpect" not exists. Install with pip and try again')
-    sys.exit(1)
+import subprocess
 
 # Define command
 _COMMAND_ = 'python3 server.py --Ice.Config=Server.config "%(auth_proxy)s"'
@@ -31,10 +26,8 @@ final_command = _COMMAND_ % {
 }
 
 # Run command
-proc = pexpect.spawn(final_command, echo=False)
-proc.logfile=sys.stdout.buffer
 try:
-    proc.expect([pexpect.EOF,pexpect.TIMEOUT],timeout=None)
+    subprocess.run(final_command,shell=True, stdout=sys.stdout)
 except KeyboardInterrupt:
     print("Programa detenido por teclado")
 sys.exit(0)

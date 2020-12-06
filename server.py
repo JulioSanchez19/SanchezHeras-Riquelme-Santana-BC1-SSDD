@@ -72,15 +72,20 @@ class GestionMapasI(IceGauntlet.RoomManager):
                         room_data_=json.load(rooms)
                     except:
                         raise IceGauntlet.WrongRoomFormat()
-                if room_data_["room"] is None or room_data_["data"] is None:
-                    raise IceGauntlet.WrongRoomFormat()
-                else:
-                    if self.__comprobar_nombre_distinto__(token,room_data_, self._rooms_)==True:
-                        room_data_["token"]=token
-                        with open("rooms/"+self.__elegir_nombre__()+".json", 'w') as contents:
-                            json.dump(room_data_, contents, indent=4, sort_keys=True)
+                try:
+                    if room_data_["room"] is None or room_data_["data"] is None:
+                        raise IceGauntlet.WrongRoomFormat()
                     else:
-                        raise IceGauntlet.RoomAlreadyExists()
+                        if self.__comprobar_nombre_distinto__(token,room_data_, self._rooms_)==True:
+                            room_data_["token"]=token
+                            with open("rooms/"+self.__elegir_nombre__()+".json", 'w') as contents:
+                                json.dump(room_data_, contents, indent=4, sort_keys=True)
+                        else:
+                            raise IceGauntlet.RoomAlreadyExists()
+                except IceGauntlet.RoomAlreadyExists:
+                    raise IceGauntlet.RoomAlreadyExists()
+                except:
+                    raise IceGauntlet.WrongRoomFormat()
         else:
             raise IceGauntlet.Unauthorized()
 
