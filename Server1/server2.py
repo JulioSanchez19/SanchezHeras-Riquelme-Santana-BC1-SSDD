@@ -195,7 +195,8 @@ class GestionMapasI(IceGauntlet.RoomManager, IceGauntlet.RoomManagerSync):
                             #if room_json["token"]==token:
                             os.remove(room)
                             print(room+" borrado")
-                            self._publisher_.removedRoom(room)
+                            self._publisher_.removedRoom(room_name)
+                            print("ha mandado removedroom")
                             break
                             # else:
                             #     raise IceGauntlet.Unauthorized()
@@ -253,12 +254,18 @@ class GestionMapasI(IceGauntlet.RoomManager, IceGauntlet.RoomManagerSync):
         else:   
             print("Soy yo "+str(managerId))
     def removedRoom(self, roomName, current=None):
+        print("entra remove")
+        print(roomName)
         rooms=glob.glob(ROOMS_DIRECTORY)
+        room_json={}
         for room in rooms:
+            print("antes existe")
             if os.path.exists(room):
                 with open(room,'r') as file_room:
+                    print("archivo abierto")
                     room_json=json.load(file_room)
                     if room_json["room"]==roomName:
+                        print("borra")
                         os.remove(room)
 
 class Server(Ice.Application):
