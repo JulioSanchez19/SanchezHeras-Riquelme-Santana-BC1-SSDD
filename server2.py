@@ -12,6 +12,8 @@ import uuid
 import random
 import glob
 import string
+import pickle
+import icegauntlettool
 import Ice
 Ice.loadSlice('icegauntlet.ice')
 # pylint: disable=E0401
@@ -22,20 +24,47 @@ ROOMS_DIRECTORY='rooms/*'
 GAME_PROXY="gameProxy.json"
 SERVIDORES={}
 
-class DungeonAreaI(IceGauntlet.DungeonArea):
+class DungeonAreaI(IceGauntlet.DungeonArea, IceGauntlet.DungeonAreaSync):
     def __init__(self, topic_mgr):
-        topic_name = self.getEventChannel()
-        qos = {}#valores de calidad de servicio/ no lo vamos a utilizar
-        try:
-            topic = topic_mgr.retrieve(topic_name)#coger el proxy del topic
-        except IceStorm.NoSuchTopic:
-            topic = topic_mgr.create(topic_name)
-        adapter = ic.createObjectAdapter("SaludarAdapter")
-        subscriber = adapter.addWithUUID(servant)
-        topic.subscribeAndGetPublisher(qos, subscriber)
+        #OBJETO DEL SIGUIENTE DUNGEON AREA
+        newDungArea=current.adapter().addWithUUID(DungeonAreaI(self._topic_mgr_))
+        self._dungeon_area_=IceGauntlet.DungeonAreaPrx.checkedCast(newDungArea)
 
-    def getEventChannel():
-        return "DungeonAreaSync"
+        #SE CREA EL CANAL DE EVENTOS
+        topic_name = self.getEventChannel()
+        qos = {}
+        try:
+            self._topic_ = topic_mgr.retrieve(topic_name)
+        except IceStorm.NoSuchTopic:
+            self._topic_ = topic_mgr.create(topic_name)
+        # adapter = ic.createObjectAdapter("SaludarAdapter")
+        # subscriber = adapter.addWithUUID(self)
+        # self._topic_.subscribeAndGetPublisher(qos, subscriber)
+
+        self._publisherPrx_=self._topic_.getPublisher()
+        self._publisher_=IceGauntlet.DungeonAreaSyncPrx.uncheckedCast(self._publisherPrx_)
+        
+        self._adapter_ = broker.createObjectAdapter("DungeonAreaSyncAdapter")
+        subscriber = self._adapter_.addWithUUID(self)
+        qos={}
+        self._topic_.subscribeAndGetPublisher(qos, subscriber)
+        self._adapter_.activate()
+
+        self._items_=icegauntlettool.get_map_objects("rooms/mapa.json")
+
+    def getEventChannel(self, current=None):
+        return "DungeonAreaSyncChannel"
+
+    def getMap(self, current=None):
+
+    def getActors(self, current=None):
+
+    def getItems(self, current=None):
+    
+    def getNextArea(self, current=None):
+        return self._dungeon_area_
+    def fireEvent(self, event, senderId, current=None):
+        pickle.load(event)
 
 
 class JuegoI(IceGauntlet.Dungeon):
@@ -43,6 +72,8 @@ class JuegoI(IceGauntlet.Dungeon):
     def __init__(self, topic_mgr):
         self._rooms_=glob.glob(ROOMS_DIRECTORY)
         self._topic_mgr_=topic_mgr
+        newDungArea=current.adapter().addWithUUID(DungeonAreaI(self._topic_mgr_))
+        self._dungeon_area_=IceGauntlet.DungeonAreaPrx.checkedCast(newDungArea)
 
     # def getRoom(self, current=None):
     #     '''Devuelve una room de la BD'''
@@ -55,9 +86,7 @@ class JuegoI(IceGauntlet.Dungeon):
     #     return room
 
     def getEntrance(self, current=None):
-        dungArea=DungeonAreaI(self._topic_mgr_)
-        newDungArea=current.adapter().addWithUUID(dungArea)
-        return IceGauntlet.DungeonAreaPrx.checkedCast(newDungArea)
+        return self._dungeon_area_
 # class RoomManagerSyncI(IceGauntlet.RoomManagerSync):
 #     def __init__(self, id, publisher, remote_reference):
 #         self._publisher_=publisher
@@ -195,7 +224,8 @@ class GestionMapasI(IceGauntlet.RoomManager, IceGauntlet.RoomManagerSync):
                             #if room_json["token"]==token:
                             os.remove(room)
                             print(room+" borrado")
-                            self._publisher_.removedRoom(room)
+                            self._publisher_.removedRoom(room_name)
+                            print("ha mandado removedroom")
                             break
                             # else:
                             #     raise IceGauntlet.Unauthorized()
@@ -253,12 +283,18 @@ class GestionMapasI(IceGauntlet.RoomManager, IceGauntlet.RoomManagerSync):
         else:   
             print("Soy yo "+str(managerId))
     def removedRoom(self, roomName, current=None):
+        print("entra remove")
+        print(roomName)
         rooms=glob.glob(ROOMS_DIRECTORY)
+        room_json={}
         for room in rooms:
+            print("antes existe")
             if os.path.exists(room):
                 with open(room,'r') as file_room:
+                    print("archivo abierto")
                     room_json=json.load(file_room)
                     if room_json["room"]==roomName:
+                        print("borra")
                         os.remove(room)
 
 class Server(Ice.Application):
