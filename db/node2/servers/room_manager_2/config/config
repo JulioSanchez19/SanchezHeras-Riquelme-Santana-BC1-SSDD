@@ -1,0 +1,12 @@
+# Configuration file (01/18/21 01:23:19.790)
+
+# Server configuration
+Ice.Admin.ServerId=room_manager_2
+Ice.Admin.Endpoints=tcp -h localhost
+Ice.ProgramName=room_manager_2
+# Object adapter room_manager_adapter
+room_manager_adapter.Endpoints=tcp
+room_manager_adapter.AdapterId=room_manager_2.room_manager_adapter
+# Server descriptor properties
+Ice.StdOut=/home/julio/Escritorio/TrabajoDist/db/node2/distrib/IcePrueba/server-out.txt
+Ice.Default.Locator=IceGrid/Locator -t:tcp -h 127.0.0.1 -p 9091

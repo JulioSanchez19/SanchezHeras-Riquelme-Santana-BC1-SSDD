@@ -1,0 +1,12 @@
+# Configuration file (01/18/21 01:36:26.851)
+
+# Server configuration
+Ice.Admin.ServerId=auth_server
+Ice.Admin.Endpoints=tcp -h localhost
+Ice.ProgramName=auth_server
+# Object adapter AuthenticationAdapter
+AuthenticationAdapter.Endpoints=tcp -p 9090
+AuthenticationAdapter.AdapterId=auth_server.AuthenticationAdapter
+# Server descriptor properties
+Ice.StdOut=/home/julio/Escritorio/TrabajoDist/db/node1/distrib/IcePrueba/server-out.txt
+Ice.Default.Locator=IceGrid/Locator -t:tcp -h 127.0.0.1 -p 9091
