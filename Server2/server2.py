@@ -12,6 +12,9 @@ import uuid
 import random
 import glob
 import string
+import pickle
+import struct
+import icegauntlettool
 import Ice
 Ice.loadSlice('icegauntlet.ice')
 # pylint: disable=E0401
@@ -22,27 +25,110 @@ ROOMS_DIRECTORY='rooms/*'
 GAME_PROXY="gameProxy.json"
 SERVIDORES={}
 
-class DungeonAreaI(IceGauntlet.DungeonArea):
-    def __init__(self, topic_mgr):
-        topic_name = self.getEventChannel()
-        qos = {}#valores de calidad de servicio/ no lo vamos a utilizar
-        try:
-            topic = topic_mgr.retrieve(topic_name)#coger el proxy del topic
-        except IceStorm.NoSuchTopic:
-            topic = topic_mgr.create(topic_name)
-        adapter = ic.createObjectAdapter("SaludarAdapter")
-        subscriber = adapter.addWithUUID(servant)
-        topic.subscribeAndGetPublisher(qos, subscriber)
+class Item(IceGauntlet.Item):
+    def __init__(self, id, item_type, posicion_x, posicion_y):
+        self.itemId=id
+        self.itemType=item_type
+        self.positionX = posicion_x
+        self.positionY = posicion_y
 
-    def getEventChannel():
-        return "DungeonAreaSync"
+class Actor(IceGauntlet.Actor):
+    def __init__(self, actorId, attributes):
+        self.actorId=actorId
+        self.attributes=attributes
+
+class DungeonAreaI(IceGauntlet.DungeonArea, IceGauntlet.DungeonAreaSync):
+    def __init__(self, topic_mgr, adapter, broker):
+        self._topic_mgr_ = topic_mgr
+        self._adapter_ = adapter
+        self._broker_ = broker
+        self._channel_name_ = str(uuid.uuid4())
+        #OBJETO DEL SIGUIENTE DUNGEON AREA
+        self._dungeon_area_=None
+        
+
+        #SE CREA EL CANAL DE EVENTOS
+        topic_name = self.getEventChannel()
+        qos = {}
+        try:
+            self._topic_ = topic_mgr.retrieve(topic_name)
+        except IceStorm.NoSuchTopic:
+            self._topic_ = topic_mgr.create(topic_name)
+        # adapter = ic.createObjectAdapter("SaludarAdapter")
+        # subscriber = adapter.addWithUUID(self)
+        # self._topic_.subscribeAndGetPublisher(qos, subscriber)
+
+        self._publisherPrx_=self._topic_.getPublisher()
+        self._publisher_=IceGauntlet.DungeonAreaSyncPrx.uncheckedCast(self._publisherPrx_)
+        
+        self._adapter_ = broker.createObjectAdapter("DungeonAreaSyncAdapter")
+        subscriber = self._adapter_.addWithUUID(self)
+        qos={}
+        self._topic_.subscribeAndGetPublisher(qos, subscriber)
+        self._adapter_.activate()
+
+        self._items_=[]
+
+        with open("rooms/mapa.json",'r') as rooms:
+            room_data={}
+            room_data=json.load(rooms)
+            walls=icegauntlettool.filter_map_objects(json.dumps(room_data))
+            self._mapa_=walls
+            items=icegauntlettool.get_map_objects(json.dumps(room_data))
+            i=0
+            for it in items:
+                # print(type(item))
+                # id=[i]
+                # tupla=list(item)
+                # # print("tupla")
+                # # print(tupla)
+                # # tupla.append(i)
+                # tupla[:0]=id
+                # print(tupla)
+                id=str(i)#.encode()
+                posicion=it[1]
+                item_type=it[0]
+                self._items_.append(Item(id, item_type, posicion[0], posicion[1]))
+                print("self.items")
+                print(self._items_)
+                i+=1
+            print(self._items_)
+
+
+    def getEventChannel(self, current=None):
+        return self._channel_name_
+
+    def getMap(self, current=None):
+        print("getMap")
+        return self._mapa_
+
+    # def getActors(self, current=None):
+
+    def getItems(self, current=None):
+        print("getItems")
+        return self._items_
+
+    
+    def getNextArea(self, current=None):
+        if self._dungeon_area_ is None:
+            newDungArea=self._adapter_.addWithUUID(DungeonAreaI(self._topic_mgr_, self._adapter_, self._broker_))
+            self._dungeon_area_=IceGauntlet.DungeonAreaPrx.checkedCast(newDungArea)
+        return self._dungeon_area_
+    def fireEvent(self, event, senderId, current=None):
+        evento=pickle.load(event)
+        print(evento)
+        print(evento[0])
+        
 
 
 class JuegoI(IceGauntlet.Dungeon):
     '''Sirviente de juego'''
-    def __init__(self, topic_mgr):
+    def __init__(self, topic_mgr, adapter, broker):
+        self._topic_mgr_ = topic_mgr
+        self._adapter_ = adapter
+        self._broker_ = broker
         self._rooms_=glob.glob(ROOMS_DIRECTORY)
-        self._topic_mgr_=topic_mgr
+        self._dungeon_area_=None
 
     # def getRoom(self, current=None):
     #     '''Devuelve una room de la BD'''
@@ -55,9 +141,13 @@ class JuegoI(IceGauntlet.Dungeon):
     #     return room
 
     def getEntrance(self, current=None):
-        dungArea=DungeonAreaI(self._topic_mgr_)
-        newDungArea=current.adapter().addWithUUID(dungArea)
-        return IceGauntlet.DungeonAreaPrx.checkedCast(newDungArea)
+        if self._dungeon_area_ is None:
+            if self._rooms_ is not None:
+                newDungArea=self._adapter_.addWithUUID(DungeonAreaI(self._topic_mgr_, self._adapter_, self._broker_))
+                self._dungeon_area_=IceGauntlet.DungeonAreaPrx.checkedCast(newDungArea)
+            else:
+                raise IceGauntlet.RoomNotExists()
+        return self._dungeon_area_
 # class RoomManagerSyncI(IceGauntlet.RoomManagerSync):
 #     def __init__(self, id, publisher, remote_reference):
 #         self._publisher_=publisher
@@ -106,7 +196,6 @@ class GestionMapasI(IceGauntlet.RoomManager, IceGauntlet.RoomManagerSync):
         adapter = broker.createObjectAdapter('RoomManagerAdapter')
         proxy=adapter.addWithUUID(self)
         self._remote_reference_=IceGauntlet.RoomManagerPrx.checkedCast(proxy)
-        #print("MI REFERENCIA REMOTA "+str(self._remote_reference_))
         print("MI REFERENCIA REMOTA "+str(self._remote_reference_))
         adapter.activate()
         
@@ -296,7 +385,8 @@ class Server(Ice.Application):
         # publisherPrx = topic.getPublisher()
         # publisher = IceGauntlet.RoomManagerSyncPrx.uncheckedCast(publisherPrx)
 
-        servant = JuegoI(topic)
+        adapter = broker.createObjectAdapter("ServerAdapter")
+        servant = JuegoI(topic_mgr, adapter, broker)
 
         auth_server = self.communicator().stringToProxy(argv[1])
         proxy_auth_server = IceGauntlet.AuthenticationPrx.checkedCast(auth_server)
@@ -306,11 +396,11 @@ class Server(Ice.Application):
 
         servant2 = GestionMapasI(proxy_auth_server,broker, topic)
 
-        # adapter = broker.createObjectAdapter("ServerAdapter")
-        # #proxy_juego=adapter.add(servant, broker.stringToIdentity("juego"))
+        proxy_juego=adapter.add(servant, broker.stringToIdentity("juego"))
         # proxy_gestion_mapas=adapter.add(servant2,broker.stringToIdentity("gestionMapas"))
 
-        # print(proxy_gestion_mapas, flush=True)
+        print("Proxy juego")
+        print(proxy_juego, flush=True)
 
         # game_proxy={}
         # game_proxy["proxy"]=str(proxy_juego)
@@ -328,7 +418,7 @@ class Server(Ice.Application):
 
 
 
-        #adapter.activate()
+        adapter.activate()
         self.shutdownOnInterrupt()
         broker.waitForShutdown()
 
