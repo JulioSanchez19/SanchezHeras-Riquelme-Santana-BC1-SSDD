@@ -9,6 +9,7 @@ import json
 import os
 import IceStorm
 import uuid
+import time
 import random
 import glob
 import string
@@ -73,6 +74,8 @@ class DungeonAreaI(IceGauntlet.DungeonArea, IceGauntlet.DungeonAreaSync):
         self._items2_=[]
         self._actors_=[]
 
+        self._tuplas_={}
+
         with open("rooms/mapa.json",'r') as rooms:
             room_data={}
             room_data=json.load(rooms)
@@ -82,17 +85,10 @@ class DungeonAreaI(IceGauntlet.DungeonArea, IceGauntlet.DungeonAreaSync):
             self._items2_=icegauntlettool.get_map_objects(json.dumps(room_data))
             i=0
             for it in items:
-                # print(type(item))
-                # id=[i]
-                # tupla=list(item)
-                # # print("tupla")
-                # # print(tupla)
-                # # tupla.append(i)
-                # tupla[:0]=id
-                # print(tupla)
-                id=str(i)#.encode()
+                id=str(i)
                 posicion=it[1]
                 item_type=it[0]
+                self._tuplas_[i]=(item_type, posicion)
                 self._items_.append(Item(id, item_type, posicion[0], posicion[1]))
                 i+=1
             print(self._items_)
@@ -131,36 +127,37 @@ class DungeonAreaI(IceGauntlet.DungeonArea, IceGauntlet.DungeonAreaSync):
                 if(it.itemId==evento[1]):
                     self._items_.pop(contador)
                 contador+=1
-        # elif(evento[0]=="open_door"):
-            # contador=0
-            # for it in self._items_:
-            #     if(it.itemId==evento[2]):
-            #         item=self._items_.pop(contador)
-            #         print("puerta borrada")
-            #         print(self._items_)
-            #         # print("-----------------")
-            #         # for item_id in self._items_:
-            #         #     item_type, item_position = self._items_[item_id]
-            #         #     print(self._items_[item_id])
-            #         #     print("tipo")
-            #         #     print(item_type)
-            #         #     print("pos")
-            #         #     print(item_position)
-            #         # print("-----------------")
-            #         # item_type, item_position = self._items_[0]
-            #         # print(item_type)
-            #         # print("posicion")
-            #         # print(item_position)
-            #         adjacent_items=icegauntlettool.search_adjacent_door(self.getItems(), (item.positionX, item.positionY), None)
-            #         for adj in adjacent_items:
-            #             contadorAdj=0
-            #             for it in self._items_:
-            #                 if(it.itemId==adj):
-            #                     self._items_.pop(contadorAdj)
-            #                     print("adyacente")
-            #                     print(self._items_)
-            #                 contadorAdj+=1
-            #     contador+=1
+        elif(evento[0]=="open_door"):
+            contador=0
+            for it in self._items_:
+                if(it.itemId==evento[2]):
+                    item=self._items_.pop(contador)
+                    print("puerta borrada")
+                    print(self._items_)
+                    # print("-----------------")
+                    # for item_id in self._items_:
+                    #     item_type, item_position = self._items_[item_id]
+                    #     print(self._items_[item_id])
+                    #     print("tipo")
+                    #     print(item_type)
+                    #     print("pos")
+                    #     print(item_position)
+                    # print("-----------------")
+                    # item_type, item_position = self._items_[0]
+                    # print(item_type)
+                    # print("posicion")
+                    # print(item_position)
+                    #adjacent_items=icegauntlettool.search_adjacent_door(self.getItems(), (item.positionX, item.positionY), None)
+                    adjacent_items=icegauntlettool.search_adjacent_door(self._tuplas_, (item.positionX, item.positionY), None)
+                    for adj in adjacent_items:
+                        contadorAdj=0
+                        for it in self._items_:
+                            if(it.itemId==adj):
+                                self._items_.pop(contadorAdj)
+                                print("adyacente")
+                                print(self._items_)
+                            contadorAdj+=1
+                contador+=1
 
 class JuegoI(IceGauntlet.Dungeon):
     '''Sirviente de juego'''
@@ -277,38 +274,83 @@ class GestionMapasI(IceGauntlet.RoomManager, IceGauntlet.RoomManagerSync):
                 break
         return nombre_archivo
 
+    # def publish(self, token, room_data, current=None):
+    #     '''Publica una room en la BD'''
+    #     self._rooms_=glob.glob(ROOMS_DIRECTORY)
+    #     room_data_={}
+    #     owner=self.proxy_auth_server.getOwner(token)
+    #     if owner is not None:
+    #         if os.path.exists("/home/julio/Escritorio/TrabajoDist/"+room_data):
+    #             with open("/home/julio/Escritorio/TrabajoDist/"+room_data,'r') as rooms:
+    #                 try:
+    #                     room_data_=json.load(rooms)
+    #                 except:
+    #                     raise IceGauntlet.WrongRoomFormat()
+    #             try:
+    #                 if room_data_["room"] is None or room_data_["data"] is None or room_data_["owner"] is None:
+    #                     raise IceGauntlet.WrongRoomFormat()
+    #                 else:
+    #                     if self.__comprobar_nombre_distinto__(room_data_, self._rooms_)==True:
+    #                         room_data_["owner"]=owner
+    #                         nombre_aleatorio=self.__elegir_nombre__()
+    #                         with open("rooms/"+nombre_aleatorio+".json", 'w') as contents:
+    #                             json.dump(room_data_, contents, indent=4, sort_keys=True)
+    #                         if os.path.exists("rooms/"+nombre_aleatorio+".json"):
+    #                             with open("rooms/"+nombre_aleatorio+".json",'r') as file_room:
+    #                                 room_json=json.load(file_room)
+    #                                 nombre_room=room_json["room"]
+    #                                 self._publisher_.newRoom(nombre_room,str(self._id_))
+    #                     else:
+    #                         raise IceGauntlet.RoomAlreadyExists()
+    #             except IceGauntlet.RoomAlreadyExists:
+    #                 raise IceGauntlet.RoomAlreadyExists()
+    #             except:
+    #                 raise IceGauntlet.WrongRoomFormat()
+    #     else:
+    #         raise IceGauntlet.Unauthorized()
+
+    def __actualizar_rooms__(self, available_rooms, rooms, manager):
+        for available_room in available_rooms:
+                mapaExistente=False
+                for room in rooms:
+                    if os.path.exists(room):
+                        with open(room,'r') as file_room:
+                            room_json=json.load(file_room)
+                            if room_json["room"]==available_room:
+                                mapaExistente=True
+                                break
+                if(mapaExistente==False):
+                    new_room = manager.getRoom(available_room)
+                    nombre_aleatorio=self.__elegir_nombre__()
+                    with open("rooms/"+nombre_aleatorio+".json", 'w') as contents:
+                        json.dump(json.loads(new_room), contents, indent=4, sort_keys=True)
     def publish(self, token, room_data, current=None):
         '''Publica una room en la BD'''
         self._rooms_=glob.glob(ROOMS_DIRECTORY)
         room_data_={}
+        room_data_=json.loads(room_data)
         owner=self.proxy_auth_server.getOwner(token)
         if owner is not None:
-            if os.path.exists("/home/julio/Escritorio/TrabajoDist/"+room_data):
-                with open("/home/julio/Escritorio/TrabajoDist/"+room_data,'r') as rooms:
-                    try:
-                        room_data_=json.load(rooms)
-                    except:
-                        raise IceGauntlet.WrongRoomFormat()
-                try:
-                    if room_data_["room"] is None or room_data_["data"] is None:
-                        raise IceGauntlet.WrongRoomFormat()
-                    else:
-                        if self.__comprobar_nombre_distinto__(room_data_, self._rooms_)==True:
-                            room_data_["owner"]=owner
-                            nombre_aleatorio=self.__elegir_nombre__()
-                            with open("rooms/"+nombre_aleatorio+".json", 'w') as contents:
-                                json.dump(room_data_, contents, indent=4, sort_keys=True)
-                            if os.path.exists("rooms/"+nombre_aleatorio+".json"):
-                                with open("rooms/"+nombre_aleatorio+".json",'r') as file_room:
-                                    room_json=json.load(file_room)
-                                    nombre_room=room_json["room"]
-                                    self._publisher_.newRoom(nombre_room,str(self._id_))
-                        else:
-                            raise IceGauntlet.RoomAlreadyExists()
-                except IceGauntlet.RoomAlreadyExists:
-                    raise IceGauntlet.RoomAlreadyExists()
-                except:
+            try:
+                if room_data_["room"] is None or room_data_["data"] is None:
                     raise IceGauntlet.WrongRoomFormat()
+                else:
+                    if self.__comprobar_nombre_distinto__(room_data_, self._rooms_)==True:
+                        room_data_["owner"]=owner
+                        nombre_aleatorio=self.__elegir_nombre__()
+                        with open("rooms/"+nombre_aleatorio+".json", 'w') as contents:
+                            json.dump(room_data_, contents, indent=4, sort_keys=True)
+                        if os.path.exists("rooms/"+nombre_aleatorio+".json"):
+                            with open("rooms/"+nombre_aleatorio+".json",'r') as file_room:
+                                room_json=json.load(file_room)
+                                nombre_room=room_json["room"]
+                                self._publisher_.newRoom(nombre_room,str(self._id_))
+                    else:
+                        raise IceGauntlet.RoomAlreadyExists()
+            except IceGauntlet.RoomAlreadyExists:
+                raise IceGauntlet.RoomAlreadyExists()
+            except:
+                raise IceGauntlet.WrongRoomFormat()
         else:
             raise IceGauntlet.Unauthorized()
 
@@ -351,17 +393,45 @@ class GestionMapasI(IceGauntlet.RoomManager, IceGauntlet.RoomManagerSync):
                         data=room_json
                         print(type(data))
                         break
-        return json.dumps(data)#str(data)
+        return json.dumps(data)
     def hello(self, manager, managerId, current=None):
         if(managerId!=str(self._id_)):
-            self._publisher_.announce(self._remote_reference_, str(self._id_))
-            print("Hello")
             SERVIDORES[managerId]=manager
+            print("antes del ava en hello")
+            print(manager)
+            available_rooms = manager.availableRooms()
+            print("pasa el ava en hello")
+            rooms=glob.glob(ROOMS_DIRECTORY)
+            self.__actualizar_rooms__(available_rooms, rooms, manager)
+            #time.sleep(5)
+            print("antes del announce")
+            self._publisher_.announce(self._remote_reference_, str(self._id_))
+            # for available_room in available_rooms:
+            #     mapaExistente=False
+            #     for room in rooms:
+            #         if os.path.exists(room):
+            #             with open(room,'r') as file_room:
+            #                 room_json=json.load(file_room)
+            #                 if room_json["room"]==available_room:
+            #                     mapaExistente=True
+            #                     break
+            #     if(mapaExistente==False):
+            #         new_room = manager.getRoom(available_room)
+            #         nombre_aleatorio=self.__elegir_nombre__()
+            #         with open("rooms/"+nombre_aleatorio+".json", 'w') as contents:
+            #             json.dump(json.loads(new_room), contents, indent=4, sort_keys=True)
             print(SERVIDORES)
     def announce(self, manager, managerId, current=None):
         if(managerId!=str(self._id_)):
             print("announce")
-            SERVIDORES[managerId]=manager#self.announce(self._remote_reference_, self._id_)
+            print("antes del ava en announce")
+            print(manager)
+            if(managerId not in SERVIDORES):
+                available_rooms = manager.availableRooms()
+                print("pasa del ava en announce")
+                rooms=glob.glob(ROOMS_DIRECTORY)
+                self.__actualizar_rooms__(available_rooms, rooms, manager)
+            SERVIDORES[managerId]=manager
             print(SERVIDORES)
     def newRoom(self, roomName, managerId, current=None):
         mapaExistente=False
@@ -398,6 +468,20 @@ class GestionMapasI(IceGauntlet.RoomManager, IceGauntlet.RoomManagerSync):
                     if room_json["room"]==roomName:
                         print("borra")
                         os.remove(room)
+    def availableRooms(self, current=None):
+        _available_rooms_ = []
+        print("antes del glob")
+        rooms=glob.glob(ROOMS_DIRECTORY)
+        if(rooms is not None):
+            print("entra en availablerooms")
+            for room in rooms:
+                print("room")
+                if os.path.exists(room):
+                    print("existe path")
+                    with open(room,'r') as file_room:
+                        room_json=json.load(file_room)
+                        _available_rooms_.append(room_json["room"])
+        return _available_rooms_
 
 class Server(Ice.Application):
     def get_topic_manager(self):

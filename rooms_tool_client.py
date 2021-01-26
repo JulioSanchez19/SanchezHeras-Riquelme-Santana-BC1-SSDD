@@ -7,6 +7,8 @@ Cliente para la gestion de los mapas
 '''
 
 import sys
+import json
+import os
 import Ice
 Ice.loadSlice('icegauntlet.ice')
 # pylint: disable=E0401
@@ -39,8 +41,12 @@ class RoomsToolClient(Ice.Application):
     def upload_map(self,proxy_room_manager,argv):
         '''Sube un mapa'''
         token=argv[3]
+        room_data_={}
+        if os.path.exists(argv[4]):
+                with open(argv[4],'r') as rooms:
+                    room_data_=json.load(rooms)
         try:
-            proxy_room_manager.publish(token, argv[4])
+            proxy_room_manager.publish(token, json.dumps(room_data_))
             return 0
         except IceGauntlet.RoomAlreadyExists:
             print("La room que desea guardar ya existe")

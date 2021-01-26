@@ -30,8 +30,6 @@ class ClienteAutenticacion(Ice.Application):
         user=argv[2]
         return_code=0
 
-        print(auth.getOwner('g8tujeuHVr6C3GTMPNDVXjDY137L6EgePsEK5W7Q'))
-
         if argv[1]=="-g":
             return_code=self.conseguir_token(user, auth)
         elif argv[1]=="-c":
