@@ -22,6 +22,8 @@ class RoomsToolClient(Ice.Application):
             print("usage: roomsToolClient.py <-p/-r> <proxy> <token> <roomName/roomData>")
 
         room_manager = self.communicator().stringToProxy(argv[2])
+        print("PROXY")
+        print(room_manager)
         proxy_room_manager = IceGauntlet.RoomManagerPrx.checkedCast(room_manager)
 
         if not proxy_room_manager:

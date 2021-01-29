@@ -9,7 +9,6 @@ import json
 import os
 import IceStorm
 import uuid
-import time
 import random
 import glob
 import string
@@ -102,6 +101,7 @@ class DungeonAreaI(IceGauntlet.DungeonArea, IceGauntlet.DungeonAreaSync):
         return self._mapa_
 
     def getActors(self, current=None):
+        print("getActors")
         return self._actors_
 
     def getItems(self, current=None):
@@ -109,8 +109,9 @@ class DungeonAreaI(IceGauntlet.DungeonArea, IceGauntlet.DungeonAreaSync):
         return self._items_
 
     def getNextArea(self, current=None):
+        print("getnextarea")
         if self._dungeon_area_ is None:
-            newDungArea=self._adapter_.addWithUUID(DungeonAreaI(self._topic_mgr_, self._adapter_, self._dung_area_sync_adapter, self._broker_))
+            newDungArea=self._dung_area_sync_adapter.addWithUUID(DungeonAreaI(self._topic_mgr_, self._adapter_, self._dung_area_sync_adapter, self._broker_))
             self._dungeon_area_=IceGauntlet.DungeonAreaPrx.checkedCast(newDungArea)
         return self._dungeon_area_
     def fireEvent(self, event, senderId, current=None):
@@ -122,67 +123,50 @@ class DungeonAreaI(IceGauntlet.DungeonArea, IceGauntlet.DungeonAreaSync):
             print("ACTORES")
             print(self._actors_)
         elif(evento[0]=="kill_object"):
-            contador=0
+            contadorObjetos=0
             for it in self._items_:
                 if(it.itemId==evento[1]):
-                    self._items_.pop(contador)
-                contador+=1
+                    self._items_.pop(contadorObjetos)
+                contadorObjetos+=1
+            contadorActores=0
+            for act in self._actors_:
+                if(act.actorId==evento[1]):
+                    # next_area=self.getNextArea()
+                    # channel=next_area.getEventChannel()
+                    # channel.fireEvent(("spawn_actors", act.actorId, act.attributes), None)
+                    self._actors_.pop(contadorActores)
+                contadorActores+=1
         elif(evento[0]=="open_door"):
             contador=0
             for it in self._items_:
                 if(it.itemId==evento[2]):
                     item=self._items_.pop(contador)
-                    print("puerta borrada")
-                    print(self._items_)
-                    # print("-----------------")
-                    # for item_id in self._items_:
-                    #     item_type, item_position = self._items_[item_id]
-                    #     print(self._items_[item_id])
-                    #     print("tipo")
-                    #     print(item_type)
-                    #     print("pos")
-                    #     print(item_position)
-                    # print("-----------------")
-                    # item_type, item_position = self._items_[0]
-                    # print(item_type)
-                    # print("posicion")
-                    # print(item_position)
-                    #adjacent_items=icegauntlettool.search_adjacent_door(self.getItems(), (item.positionX, item.positionY), None)
                     adjacent_items=icegauntlettool.search_adjacent_door(self._tuplas_, (item.positionX, item.positionY), None)
                     for adj in adjacent_items:
                         contadorAdj=0
                         for it in self._items_:
-                            if(it.itemId==adj):
+                            if(it.itemId==str(adj)):
                                 self._items_.pop(contadorAdj)
-                                print("adyacente")
-                                print(self._items_)
                             contadorAdj+=1
+                    print("ITEMS DESPUES DE ADJACENT")
+                    print(self._items_)
                 contador+=1
 
 class JuegoI(IceGauntlet.Dungeon):
     '''Sirviente de juego'''
-    def __init__(self, topic_mgr, adapter, broker):
+    def __init__(self, topic_mgr, adapter, dung_area_adapter, broker):
         self._topic_mgr_ = topic_mgr
         self._adapter_ = adapter
         self._broker_ = broker
         self._rooms_=glob.glob(ROOMS_DIRECTORY)
-        self._dungeon_area__sync_adapter= broker.createObjectAdapter("DungeonAreaSyncAdapter")
+        self._dungeon_area__sync_adapter=dung_area_adapter
         self._dungeon_area_=None
-
-    # def getRoom(self, current=None):
-    #     '''Devuelve una room de la BD'''
-    #     self._rooms_=glob.glob(ROOMS_DIRECTORY)
-    #     room=""
-    #     if self._rooms_:
-    #         room=self._rooms_[random.randint(0, len(self._rooms_)-1)]
-    #     else:
-    #         raise IceGauntlet.RoomNotExists()
-    #     return room
 
     def getEntrance(self, current=None):
         if self._dungeon_area_ is None:
             if self._rooms_ is not None:
-                newDungArea=self._adapter_.addWithUUID(DungeonAreaI(self._topic_mgr_, self._adapter_,self._dungeon_area__sync_adapter, self._broker_))
+                #newDungArea=self._adapter_.addWithUUID(DungeonAreaI(self._topic_mgr_, self._adapter_,self._dungeon_area__sync_adapter, self._broker_))
+                newDungArea=self.dung_area_sync_adapter.addWithUUID(DungeonAreaI(self._topic_mgr_, self._adapter_,self._dungeon_area__sync_adapter, self._broker_))
                 self._dungeon_area_=IceGauntlet.DungeonAreaPrx.checkedCast(newDungArea)
             else:
                 raise IceGauntlet.RoomNotExists()
@@ -232,18 +216,25 @@ class GestionMapasI(IceGauntlet.RoomManager, IceGauntlet.RoomManagerSync):
         self._id_=uuid.uuid4()
         print("MI ID "+str(self._id_))
         self._topic_=topic
-        adapter = broker.createObjectAdapter('RoomManagerAdapter')
-        proxy=adapter.addWithUUID(self)
+        #adapter = broker.createObjectAdapter('RoomManagerAdapter')
+        self._adapter_ = broker.createObjectAdapter("Room_Manager_Adapter")
+        print("ID")
+        id_ = broker.getProperties().getProperty('Identity')
+        print(id_)
+        #proxy=self._adapter_.addWithUUID(self)
+        proxy = self._adapter_.add(self, broker.stringToIdentity(id_))
         self._remote_reference_=IceGauntlet.RoomManagerPrx.checkedCast(proxy)
         print("MI REFERENCIA REMOTA "+str(self._remote_reference_))
-        adapter.activate()
+        print("Hola")
+        #adapter.activate()
         
         self._publisherPrx_=self._topic_.getPublisher()
         self._publisher_=IceGauntlet.RoomManagerSyncPrx.uncheckedCast(self._publisherPrx_)
         
         #roomManagerSync = RoomManagerSyncI(self._id_, self._publisher_, remoteReference)
         
-        self._adapter_ = broker.createObjectAdapter("RoomManagerSyncAdapter")
+        #self._adapter_ = broker.createObjectAdapter("RoomManagerSyncAdapter")
+        
         subscriber = self._adapter_.addWithUUID(self)
         qos={}
         self._topic_.subscribeAndGetPublisher(qos, subscriber)
@@ -511,10 +502,12 @@ class Server(Ice.Application):
         # publisherPrx = topic.getPublisher()
         # publisher = IceGauntlet.RoomManagerSyncPrx.uncheckedCast(publisherPrx)
 
-        adapter = broker.createObjectAdapter("ServerAdapter")
-        servant = JuegoI(topic_mgr, adapter, broker)
+        adapter = broker.createObjectAdapter("Dungeon_Adapter")
+        dung_area_adapter=broker.createObjectAdapter("Dungeon_Area_Adapter")
+        servant = JuegoI(topic_mgr, adapter, dung_area_adapter, broker)
 
-        auth_server = self.communicator().stringToProxy(argv[1])
+        #auth_server = self.communicator().stringToProxy(argv[1])
+        auth_server = self.communicator().stringToProxy("default_1")
         proxy_auth_server = IceGauntlet.AuthenticationPrx.checkedCast(auth_server)
 
         if not proxy_auth_server:
@@ -545,6 +538,7 @@ class Server(Ice.Application):
 
 
         adapter.activate()
+        dung_area_adapter.activate()
         self.shutdownOnInterrupt()
         broker.waitForShutdown()
 
