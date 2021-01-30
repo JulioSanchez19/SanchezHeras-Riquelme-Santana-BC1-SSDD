@@ -11,7 +11,7 @@ import sys
 import subprocess
 
 # Define command
-_COMMAND_ = 'python3 rooms_tool_client.py -r "%(map_server_proxy)s" %(token)s %(roomName)s'
+_COMMAND_ = 'python3 rooms_tool_client.py --Ice.Config=Client.config -r "%(map_server_proxy)s" %(token)s %(roomName)s'
 
 try:
     map_server_proxy, token, roomName = sys.argv[1:]
