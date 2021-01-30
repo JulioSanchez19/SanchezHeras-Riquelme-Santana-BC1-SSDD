@@ -10,6 +10,7 @@ import os
 import IceStorm
 import uuid
 import random
+import time
 import glob
 import string
 import pickle
@@ -171,42 +172,6 @@ class JuegoI(IceGauntlet.Dungeon):
             else:
                 raise IceGauntlet.RoomNotExists()
         return self._dungeon_area_
-# class RoomManagerSyncI(IceGauntlet.RoomManagerSync):
-#     def __init__(self, id, publisher, remote_reference):
-#         self._publisher_=publisher
-#         self._id_=id
-#         self._remote_reference_=remote_reference
-#     def hello(self, manager, managerId, current=None):
-#         if(managerId!=str(self._id_)):
-#             self.announce(self._remote_reference_, self._id_)
-#             SERVIDORES[managerId]=manager
-#             print(SERVIDORES)
-#     def announce(self, manager, managerId, current=None):
-#         if(managerId!=str(self._id_)):
-#             SERVIDORES[managerId]=manager
-#     def newRoom(self, roomName, managerId, current=None):
-#         mapaExistente=False
-#         if(managerId!=self._id_):
-#             rooms=glob.glob(ROOMS_DIRECTORY)
-#             for room in rooms:
-#                 if os.path.exists(room):
-#                     with open(room,'r') as file_room:
-#                         room_json=json.load(file_room)
-#                         if room_json["room"]==roomName:
-#                             mapaExistente=True
-#             if(mapaExistente==False):
-#                 remote_reference=SERVIDORES[managerId]
-#                 remote_reference.getRoom(roomName)
-#         else:   
-#             print("Soy yo "+str(managerId))
-#     def removedRoom(self, roomName, current=None):
-#         rooms=glob.glob(ROOMS_DIRECTORY)
-#         for room in rooms:
-#             if os.path.exists(room):
-#                 with open(room,'r') as file_room:
-#                     room_json=json.load(file_room)
-#                     if room_json["room"]==roomName:
-#                         os.remove(room)
 
 class GestionMapasI(IceGauntlet.RoomManager, IceGauntlet.RoomManagerSync):
     '''Sirviente de gestion de mapas'''
@@ -218,12 +183,19 @@ class GestionMapasI(IceGauntlet.RoomManager, IceGauntlet.RoomManagerSync):
         self._topic_=topic
         #adapter = broker.createObjectAdapter('RoomManagerAdapter')
         self._adapter_ = broker.createObjectAdapter("Room_Manager_Adapter")
+        self._adapter_interno_ = broker.createObjectAdapter("Room_Manager2_Adapter")
+        proxy2 = self._adapter_interno_.addWithUUID(self)
+        self._remote_reference_=IceGauntlet.RoomManagerPrx.checkedCast(proxy2)
+        self._adapter_interno_.activate()
         print("ID")
+        #broker.getProperties().setProperty('Identity','RoomManager')
         id_ = broker.getProperties().getProperty('Identity')
         print(id_)
         #proxy=self._adapter_.addWithUUID(self)
         proxy = self._adapter_.add(self, broker.stringToIdentity(id_))
-        self._remote_reference_=IceGauntlet.RoomManagerPrx.checkedCast(proxy)
+        # proxy2 = self._adapter_interno_.addWithUUID(self)
+        # self._remote_reference_=IceGauntlet.RoomManagerPrx.checkedCast(proxy2)
+        #self._remote_reference_=IceGauntlet.RoomManagerPrx.checkedCast(proxy)
         print("MI REFERENCIA REMOTA "+str(self._remote_reference_))
         print("Hola")
         #adapter.activate()
@@ -235,12 +207,17 @@ class GestionMapasI(IceGauntlet.RoomManager, IceGauntlet.RoomManagerSync):
         
         #self._adapter_ = broker.createObjectAdapter("RoomManagerSyncAdapter")
         
-        subscriber = self._adapter_.addWithUUID(self)
+        #subscriber = self._adapter_.addWithUUID(self)
+        subscriber = self._adapter_interno_.addWithUUID(self)
+        print(subscriber)
         qos={}
         self._topic_.subscribeAndGetPublisher(qos, subscriber)
         self._adapter_.activate()
 
+        print("Antes de hello")
+        time.sleep(random.randint(0,1))
         self._publisher_.hello(self._remote_reference_, str(self._id_))
+        print("Despues de hello")
         #self._topic_.unsubscribe()
 
         
@@ -265,41 +242,6 @@ class GestionMapasI(IceGauntlet.RoomManager, IceGauntlet.RoomManagerSync):
                 break
         return nombre_archivo
 
-    # def publish(self, token, room_data, current=None):
-    #     '''Publica una room en la BD'''
-    #     self._rooms_=glob.glob(ROOMS_DIRECTORY)
-    #     room_data_={}
-    #     owner=self.proxy_auth_server.getOwner(token)
-    #     if owner is not None:
-    #         if os.path.exists("/home/julio/Escritorio/TrabajoDist/"+room_data):
-    #             with open("/home/julio/Escritorio/TrabajoDist/"+room_data,'r') as rooms:
-    #                 try:
-    #                     room_data_=json.load(rooms)
-    #                 except:
-    #                     raise IceGauntlet.WrongRoomFormat()
-    #             try:
-    #                 if room_data_["room"] is None or room_data_["data"] is None or room_data_["owner"] is None:
-    #                     raise IceGauntlet.WrongRoomFormat()
-    #                 else:
-    #                     if self.__comprobar_nombre_distinto__(room_data_, self._rooms_)==True:
-    #                         room_data_["owner"]=owner
-    #                         nombre_aleatorio=self.__elegir_nombre__()
-    #                         with open("rooms/"+nombre_aleatorio+".json", 'w') as contents:
-    #                             json.dump(room_data_, contents, indent=4, sort_keys=True)
-    #                         if os.path.exists("rooms/"+nombre_aleatorio+".json"):
-    #                             with open("rooms/"+nombre_aleatorio+".json",'r') as file_room:
-    #                                 room_json=json.load(file_room)
-    #                                 nombre_room=room_json["room"]
-    #                                 self._publisher_.newRoom(nombre_room,str(self._id_))
-    #                     else:
-    #                         raise IceGauntlet.RoomAlreadyExists()
-    #             except IceGauntlet.RoomAlreadyExists:
-    #                 raise IceGauntlet.RoomAlreadyExists()
-    #             except:
-    #                 raise IceGauntlet.WrongRoomFormat()
-    #     else:
-    #         raise IceGauntlet.Unauthorized()
-
     def __actualizar_rooms__(self, available_rooms, rooms, manager):
         for available_room in available_rooms:
                 mapaExistente=False
@@ -318,6 +260,7 @@ class GestionMapasI(IceGauntlet.RoomManager, IceGauntlet.RoomManagerSync):
     def publish(self, token, room_data, current=None):
         '''Publica una room en la BD'''
         self._rooms_=glob.glob(ROOMS_DIRECTORY)
+        print("Publish")
         room_data_={}
         room_data_=json.loads(room_data)
         owner=self.proxy_auth_server.getOwner(token)
@@ -331,11 +274,14 @@ class GestionMapasI(IceGauntlet.RoomManager, IceGauntlet.RoomManagerSync):
                         nombre_aleatorio=self.__elegir_nombre__()
                         with open("rooms/"+nombre_aleatorio+".json", 'w') as contents:
                             json.dump(room_data_, contents, indent=4, sort_keys=True)
+                            print("Escribe mapa")
                         if os.path.exists("rooms/"+nombre_aleatorio+".json"):
                             with open("rooms/"+nombre_aleatorio+".json",'r') as file_room:
                                 room_json=json.load(file_room)
                                 nombre_room=room_json["room"]
+                                print("Envia evento newRoom "+str(self._id_))
                                 self._publisher_.newRoom(nombre_room,str(self._id_))
+                                print("Despues de newRoom")
                     else:
                         raise IceGauntlet.RoomAlreadyExists()
             except IceGauntlet.RoomAlreadyExists:
@@ -348,6 +294,7 @@ class GestionMapasI(IceGauntlet.RoomManager, IceGauntlet.RoomManagerSync):
     def remove(self,token, room_name, current=None):
         '''Borra una room de la BD'''
         self._rooms_=glob.glob(ROOMS_DIRECTORY)
+        print("Remove")
         archivos_comprobados=0
         owner=self.proxy_auth_server.getOwner(token)
         if owner is not None:
@@ -396,22 +343,11 @@ class GestionMapasI(IceGauntlet.RoomManager, IceGauntlet.RoomManagerSync):
             self.__actualizar_rooms__(available_rooms, rooms, manager)
             #time.sleep(5)
             print("antes del announce")
+            time.sleep(random.randint(0,1))
             self._publisher_.announce(self._remote_reference_, str(self._id_))
-            # for available_room in available_rooms:
-            #     mapaExistente=False
-            #     for room in rooms:
-            #         if os.path.exists(room):
-            #             with open(room,'r') as file_room:
-            #                 room_json=json.load(file_room)
-            #                 if room_json["room"]==available_room:
-            #                     mapaExistente=True
-            #                     break
-            #     if(mapaExistente==False):
-            #         new_room = manager.getRoom(available_room)
-            #         nombre_aleatorio=self.__elegir_nombre__()
-            #         with open("rooms/"+nombre_aleatorio+".json", 'w') as contents:
-            #             json.dump(json.loads(new_room), contents, indent=4, sort_keys=True)
             print(SERVIDORES)
+        else:
+            print("Soy yo")
     def announce(self, manager, managerId, current=None):
         if(managerId!=str(self._id_)):
             print("announce")
@@ -426,6 +362,7 @@ class GestionMapasI(IceGauntlet.RoomManager, IceGauntlet.RoomManagerSync):
             print(SERVIDORES)
     def newRoom(self, roomName, managerId, current=None):
         mapaExistente=False
+        print("newRoom")
         #room_json={}
         if(managerId!=self._id_):
             rooms=glob.glob(ROOMS_DIRECTORY)
@@ -433,13 +370,18 @@ class GestionMapasI(IceGauntlet.RoomManager, IceGauntlet.RoomManagerSync):
                 if os.path.exists(room):
                     with open(room,'r') as file_room:
                         room_json=json.load(file_room)
+                        print(room_json["room"])
                         if room_json["room"]==roomName:
+                            print("mapaExistente")
                             mapaExistente=True
                             break
+            print(mapaExistente)
             if(mapaExistente==False):
                 remote_reference=SERVIDORES[managerId]
                 data=""
+                print("pide getRoom")
                 data=remote_reference.getRoom(roomName)
+                print("despues de getRoom")
                 nombre_aleatorio=self.__elegir_nombre__()
                 with open("rooms/"+nombre_aleatorio+".json", 'w') as contents:
                     json.dump(json.loads(data), contents, indent=4, sort_keys=True)
@@ -504,6 +446,8 @@ class Server(Ice.Application):
 
         adapter = broker.createObjectAdapter("Dungeon_Adapter")
         dung_area_adapter=broker.createObjectAdapter("Dungeon_Area_Adapter")
+        adapter.activate()
+        dung_area_adapter.activate()
         servant = JuegoI(topic_mgr, adapter, dung_area_adapter, broker)
 
         #auth_server = self.communicator().stringToProxy(argv[1])
@@ -537,8 +481,7 @@ class Server(Ice.Application):
 
 
 
-        adapter.activate()
-        dung_area_adapter.activate()
+        
         self.shutdownOnInterrupt()
         broker.waitForShutdown()
 
